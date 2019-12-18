@@ -2,6 +2,7 @@
 
 require "tmpdir"
 require "securerandom"
+require "time"
 
 module Jekyll
   module Library
@@ -79,11 +80,11 @@ module Jekyll
         pages.select { |p| p.data.key? "isbn" }
       end
 
-      def get_cover_path(uuid)
+      def get_cover_path(id)
         cover_folder = @site.in_source_dir(@config["cover_folder"])
         Dir.mkdir(cover_folder) unless File.exist?(cover_folder)
 
-        fname = uuid + ".jpg"
+        fname = id + ".jpg"
 
         return {
           "abs" => Jekyll.sanitized_path(cover_folder, fname),
@@ -92,25 +93,20 @@ module Jekyll
       end
 
       def get_book_info(isbn)
-        uuid = SecureRandom.uuid
+        metadata = { "cover" => get_cover_path(isbn) }
 
-        metadata = {
-          "uuid" => uuid,
-          "cover" => get_cover_path(uuid)
-        }
+        need_cover = ! File.exist?(metadata["cover"]["abs"])
 
         Dir.mktmpdir { |dir|
           opf = File.join(dir, "opf.xml")
           cover = File.join(dir, "cover.jpg")
 
-          system(
-            "fetch-ebook-metadata",
-            "-i", isbn,
-            "-o",
-            "-c", cover,
-            :err => File::NULL,
-            :out => [opf, "w"]
-          )
+          args = [ "fetch-ebook-metadata" ]
+          args += [ "-i", isbn ]
+          args += [ "-o" ]
+          args += [ "-c", cover ] if need_cover
+
+          system(*args, :err => File::NULL, :out => [opf, "w"])
 
           doc = File.open(opf) { |f| Nokogiri::XML(f) }
           doc.remove_namespaces!
@@ -118,8 +114,10 @@ module Jekyll
           metadata["title"] = doc.xpath("//title").map { |n| n.text }.first
           metadata["authors"] = doc.xpath("//creator").map { |n| n.text }
           metadata["description"] = doc.xpath("//description").map { |n| n.text }.first
+          metadata["publisher"] = doc.xpath("//publisher").map { |n| n.text }.first
+          metadata["date"] = Time.parse(doc.xpath("//date").map { |n| n.text }.first)
 
-          IO::copy_stream(cover, metadata["cover"]["abs"])
+          IO::copy_stream(cover, metadata["cover"]["abs"]) if need_cover
 
           metadata
         }
