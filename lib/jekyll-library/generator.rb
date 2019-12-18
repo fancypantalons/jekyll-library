@@ -111,11 +111,11 @@ module Jekyll
           doc = File.open(opf) { |f| Nokogiri::XML(f) }
           doc.remove_namespaces!
 
-          metadata["title"] = doc.xpath("//title").map { |n| n.text }.first
+          metadata["title"] = doc.xpath("//title").first.text
           metadata["authors"] = doc.xpath("//creator").map { |n| n.text }
-          metadata["description"] = doc.xpath("//description").map { |n| n.text }.first
-          metadata["publisher"] = doc.xpath("//publisher").map { |n| n.text }.first
-          metadata["date"] = Time.parse(doc.xpath("//date").map { |n| n.text }.first)
+          metadata["description"] = doc.xpath("//description").first.text
+          metadata["publisher"] = doc.xpath("//publisher").first.text
+          metadata["date"] = Time.parse(doc.xpath("//date").first.text)
 
           IO::copy_stream(cover, metadata["cover"]["abs"]) if need_cover
 
