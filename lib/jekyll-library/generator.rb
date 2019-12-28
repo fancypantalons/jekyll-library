@@ -96,6 +96,7 @@ module Jekyll
         metadata = { "cover" => get_cover_path(isbn) }
 
         need_cover = ! File.exist?(metadata["cover"]["abs"])
+        plugins = @config["plugins"]
 
         Dir.mktmpdir { |dir|
           opf = File.join(dir, "opf.xml")
@@ -105,6 +106,7 @@ module Jekyll
           args += [ "-i", isbn ]
           args += [ "-o" ]
           args += [ "-c", cover ] if need_cover
+          args += plugins.map { |plugin| [ "-p", plugin ] }.flatten if plugins
 
           system(*args, :err => File::NULL, :out => [opf, "w"])
 

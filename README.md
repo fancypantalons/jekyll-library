@@ -72,6 +72,24 @@ library:
 
 Each entry in the cache file includes the ISBN of the book and the corresponding metadata.
 
+### Plugin selection
+
+The Calibre `fetch-ebook-metadata` tool supports a number of different plugins for ebook metadata retrieval.  This plugin allows you to control which Calibre plugins are used and in what order.
+
+The following is an example:
+
+```yaml
+library:
+  collections:
+    - posts
+  plugins:
+    - Amazon.com
+    - Google
+    - ISBNDB
+```
+
+See the `fetch-ebook-metadata` manpage for the complete list of available plugins.
+
 # Thanks
 
 * Huge thanks to the entire Calibre team!
