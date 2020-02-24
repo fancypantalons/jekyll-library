@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
+require "json"
 require "tmpdir"
 require "securerandom"
 require "time"
+require "digest"
 
 module Jekyll
   module Library
@@ -47,22 +49,10 @@ module Jekyll
         end
       end
 
-      def get_cache_file()
-        cache_folder = @site.in_source_dir(@config["cache_folder"] || ".jekyll-cache")
-        Dir.mkdir(cache_folder) unless File.exist?(cache_folder)
-
-        file = Jekyll.sanitized_path(cache_folder, "library-cache")
-        File.open(file, "wb") { |f| f.puts YAML.dump({}) } unless File.exist?(file)
-
-        file
-      end
-
       def with_cache(&block)
-        cache = SafeYAML.load_file(get_cache_file()) || {}
+        cache = {}
 
         block.call(cache)
-
-        File.open(get_cache_file(), "wb") { |f| f.puts YAML.dump(cache) }
       end
 
       def get_page_list(include_pages, collections)
@@ -95,31 +85,45 @@ module Jekyll
       def get_book_info(isbn)
         metadata = { "cover" => get_cover_path(isbn) }
 
-        need_cover = ! File.exist?(metadata["cover"]["abs"])
         plugins = @config["plugins"]
 
         Dir.mktmpdir { |dir|
-          opf = File.join(dir, "opf.xml")
+          output = File.join(dir, "output.json")
           cover = File.join(dir, "cover.jpg")
 
-          args = [ "fetch-ebook-metadata" ]
-          args += [ "-i", isbn ]
-          args += [ "-o" ]
-          args += [ "-c", cover ] if need_cover
-          args += plugins.map { |plugin| [ "-p", plugin ] }.flatten if plugins
+          args = [ "calibredb" ]
+          args += [ "list" ]
+          args += [ "-s", "isbn:#{ isbn }" ]
+          args += [ "-f", "title,authors,comments,publisher,pubdate,cover,rating,series,series_index" ]
+          args += [ "--for-machine" ]
 
-          system(*args, :err => File::NULL, :out => [opf, "w"])
+          system(*args, :err => File::NULL, :out => [output, "w"])
 
-          doc = File.open(opf) { |f| Nokogiri::XML(f) }
-          doc.remove_namespaces!
+          meta = (File.open(output) { |f| JSON.load(f) }).first
 
-          metadata["title"] = doc.xpath("//title").first.text
-          metadata["authors"] = doc.xpath("//creator").map { |n| n.text }
-          metadata["description"] = doc.xpath("//description").first.text
-          metadata["publisher"] = doc.xpath("//publisher").first.text
-          metadata["date"] = Time.parse(doc.xpath("//date").first.text)
+          if (! meta.nil?)
+            metadata["title"] = meta["title"]
+            metadata["authors"] = meta["authors"]
+            metadata["description"] = meta["comments"]
+            metadata["publisher"] = meta["publisher"]
+            metadata["date"] = meta["pubdate"]
+            metadata["stars"] = meta["rating"] / 2 if (meta.key? "rating")
+            metadata["series"] = meta["series"] if (meta.key? "series")
+            metadata["series_index"] = meta["series_index"] if (meta.key? "series_index")
 
-          IO::copy_stream(cover, metadata["cover"]["abs"]) if need_cover
+            # Only get a copy of the cover if the Calibre version is different from
+            # the one we have.
+
+            md5_source = Digest::MD5.hexdigest(IO::read(meta["cover"]));
+
+            if File.file?(metadata["cover"]["abs"])
+              md5_target = Digest::MD5.hexdigest(IO::read(metadata["cover"]["abs"]));
+            else
+              md5_target = ""
+            end
+
+            IO::copy_stream(meta["cover"], metadata["cover"]["abs"]) if (md5_source != md5_target);
+          end
 
           metadata
         }
