@@ -94,7 +94,7 @@ module Jekyll
           args = [ "calibredb" ]
           args += [ "list" ]
           args += [ "-s", "isbn:#{ isbn }" ]
-          args += [ "-f", "title,authors,comments,publisher,pubdate,cover,rating,series,series_index" ]
+          args += [ "-f", "all" ]
           args += [ "--for-machine" ]
 
           system(*args, :err => File::NULL, :out => [output, "w"])
@@ -102,6 +102,8 @@ module Jekyll
           meta = (File.open(output) { |f| JSON.load(f) }).first
 
           if (! meta.nil?)
+            ids = meta["identifiers"]
+
             metadata["title"] = meta["title"]
             metadata["authors"] = meta["authors"]
             metadata["description"] = meta["comments"]
@@ -110,6 +112,9 @@ module Jekyll
             metadata["stars"] = meta["rating"] / 2 if (meta.key? "rating")
             metadata["series"] = meta["series"] if (meta.key? "series")
             metadata["series_index"] = meta["series_index"] if (meta.key? "series_index")
+            metadata["uri"] = ids["uri"] if (ids.key? "uri")
+            metadata["author_uri"] = ids["authoruri"] if (ids.key? "authoruri")
+            metadata["series_uri"] = ids["seriesuri"] if (ids.key? "seriesuri")
 
             # Only get a copy of the cover if the Calibre version is different from
             # the one we have.
