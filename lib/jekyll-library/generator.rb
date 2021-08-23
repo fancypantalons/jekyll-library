@@ -10,7 +10,7 @@ module Jekyll
   module Library
     class Generator < Jekyll::Generator
       safe true
-      priority :lowest
+      priority :low
 
       # Main plugin action, called by Jekyll-core
       def generate(site)
