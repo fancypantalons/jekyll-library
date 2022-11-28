@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 2.3.0"
 
   spec.add_runtime_dependency "jekyll", ">= 3.7", "< 5.0"
-  spec.add_runtime_dependency "nokogiri", "~> 1.6"
+  spec.add_runtime_dependency "nokogiri"
 
   spec.add_development_dependency "bundler"
 end
